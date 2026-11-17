@@ -21,8 +21,28 @@ $defines = [
 	'WP_DEVZONE_DEBUG' => [ 'label' => 'WP_DEVZONE_DEBUG', 'desc' => 'Force-enable the Tinker code editor outside production', 'value' => ! empty( $saved_flags['WP_DEVZONE_DEBUG'] ) ],
 ];
 
-// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-$log_contents = file_exists( $log_path ) ? file_get_contents( $log_path ) : '';
+// shortcut: only the newest 512 KB of debug.log are read and shown — rendering a whole 60 MB log made
+// the tab's AJAX response ~150 MB and the tab never loaded. Add paging if older entries are ever needed.
+$log_tail_bytes = 512 * KB_IN_BYTES;
+$log_size       = file_exists( $log_path ) ? (int) filesize( $log_path ) : 0;
+$log_truncated  = $log_size > $log_tail_bytes;
+$log_contents   = '';
+// phpcs:disable WordPress.WP.AlternativeFunctions
+$log_handle = $log_size ? fopen( $log_path, 'rb' ) : false;
+if ( $log_handle ) {
+	if ( $log_truncated ) {
+		fseek( $log_handle, -$log_tail_bytes, SEEK_END );
+		fgets( $log_handle ); // drop the partial line the seek landed in
+	}
+	$log_contents = (string) stream_get_contents( $log_handle );
+	fclose( $log_handle );
+}
+// phpcs:enable WordPress.WP.AlternativeFunctions
+// Start at the first timestamped entry, so stack-trace lines cut from their error don't show alone.
+if ( $log_truncated && '' !== $log_contents && '[' !== $log_contents[0] ) {
+	$first_entry  = strpos( $log_contents, "\n[" );
+	$log_contents = false === $first_entry ? $log_contents : substr( $log_contents, $first_entry + 1 );
+}
 
 if ( ! function_exists( 'wpte_devzone_log_line_type' ) ) {
 	/**
