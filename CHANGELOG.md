@@ -1,17 +1,25 @@
 # Changelog
 
-## [Upcoming]
+## [v1.2.1] - 2026-11-17
 
 > `on_dev` hot-features gating
 
 ### Added
 
 - Self-update card in Marketplace — checks GitHub `main` for a newer version, one-click update
+- Logs → WordPress: severity filters with counts and a text filter over messages and files
 
 ### Changed
 
 - Dev Zone no longer requires WP Travel Engine — core tools work standalone; Inspector suite stays WTE-only
 - Query and Crontrol tabs only group by WP Travel Engine when WTE is active
+- Logs → WordPress redesigned: one header with entry count and file, cleaner entries, constants in a grid, accessible switches
+
+### Fixed
+
+- Logs → WordPress never loaded on a large debug.log (a 60 MB log made a ~150 MB response); it now reads the newest 512 KB
+- Xdebug stack-frame lines are grouped under their error instead of showing as separate "Other" entries
+- Logs → WordPress section panels were unstyled because their styles lived in the disabled Perf tool's stylesheet
 
 ---
 
