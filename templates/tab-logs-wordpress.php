@@ -77,6 +77,12 @@ if ( ! function_exists( 'wpte_devzone_parse_log_entries' ) ) {
 		$current = null;
 
 		foreach ( $lines as $line ) {
+			// Xdebug writes each stack frame as its own timestamped line ("PHP Stack trace:",
+			// "PHP  12. Foo->bar() …"): those belong to the error above, not a new entry.
+			if ( null !== $current && preg_match( '/^\[[^\]]+\]\s*PHP\s+(?:Stack trace:|\d+\.\s)/', $line ) ) {
+				$current['extra'][] = preg_replace( '/^\[[^\]]+\]\s*PHP\s+/', '', $line );
+				continue;
+			}
 			if ( preg_match( '/^\[([^\]]+)\]\s*(.*)$/', $line, $m ) ) {
 				if ( null !== $current ) {
 					$entries[] = $current;
