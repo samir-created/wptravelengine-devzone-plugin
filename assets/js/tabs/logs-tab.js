@@ -66,6 +66,44 @@ function _wpReloadingState( el ) {
 	el.appendChild( wrap );
 }
 
+/**
+ * Severity chips + text filter for the WordPress debug log. Entries are already in the DOM
+ * (server-rendered), so filtering only toggles `hidden`; one chip is active at a time.
+ */
+function _bindLogFilters( el ) {
+	const entries = Array.from( el.querySelectorAll( '.wte-dbg-wp-log-entry' ) );
+	const chips   = Array.from( el.querySelectorAll( '.wte-dbg-wp-filter' ) );
+	const search  = el.querySelector( '.wte-dbg-wp-log-search' );
+	const noMatch = el.querySelector( '.wte-dbg-wp-log-nomatch' );
+	if ( ! entries.length ) return;
+
+	const texts = entries.map( n => n.textContent.toLowerCase() );
+	let type = '';
+	let timer = null;
+
+	const apply = () => {
+		const q = ( search?.value || '' ).trim().toLowerCase();
+		let shown = 0;
+		entries.forEach( ( n, i ) => {
+			const show = ( ! type || n.dataset.type === type ) && ( ! q || texts[ i ].includes( q ) );
+			n.hidden = ! show;
+			if ( show ) shown++;
+		} );
+		if ( noMatch ) noMatch.hidden = shown > 0;
+	};
+
+	chips.forEach( chip => chip.addEventListener( 'click', () => {
+		type = chip.dataset.type || '';
+		chips.forEach( c => c.setAttribute( 'aria-pressed', c === chip ? 'true' : 'false' ) );
+		apply();
+	} ) );
+
+	search?.addEventListener( 'input', () => {
+		clearTimeout( timer );
+		timer = setTimeout( apply, 120 );
+	} );
+}
+
 function initWordpressTab( el ) {
 	const { ajaxurl, nonce } = wpteDbg;
 	const notice      = document.getElementById( 'wte-dbg-wp-debug-notice' );
@@ -109,6 +147,8 @@ function initWordpressTab( el ) {
 		} );
 	} );
 
+	_bindLogFilters( el );
+
 	const clearBtn = el.querySelector( '#wte-dbg-clear-log' );
 	if ( clearBtn ) {
 		clearBtn.addEventListener( 'click', () => {
@@ -128,6 +168,7 @@ function initWordpressTab( el ) {
 						empty.className   = 'wte-dbg-wp-empty';
 						empty.textContent = 'Debug log is empty.';
 						logBody.replaceChildren( empty );
+						el.querySelectorAll( '.wte-dbg-wp-log-total, .wte-dbg-wp-log-truncated' ).forEach( n => n.remove() );
 						clearBtn.remove();
 						DomHelper.setStatus( 'Log cleared.', 'success', 3 );
 					} else {

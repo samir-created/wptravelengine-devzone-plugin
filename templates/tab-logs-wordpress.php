@@ -131,76 +131,123 @@ if ( ! function_exists( 'wpte_devzone_parse_log_entries' ) ) {
 }
 
 $log_entries = $log_contents ? wpte_devzone_parse_log_entries( array_filter( explode( "\n", $log_contents ) ) ) : [];
+
+// Severity labels in display order; 'default' is any line PHP did not tag with a level.
+$log_types  = [
+	'fatal'      => __( 'Fatal', 'wptravelengine-devzone' ),
+	'warning'    => __( 'Warning', 'wptravelengine-devzone' ),
+	'deprecated' => __( 'Deprecated', 'wptravelengine-devzone' ),
+	'notice'     => __( 'Notice', 'wptravelengine-devzone' ),
+	'default'    => __( 'Other', 'wptravelengine-devzone' ),
+];
+$log_counts = array_count_values( array_column( $log_entries, 'type' ) );
 ?>
 <div class="wte-dbg-wp-wrap">
 
-	<div class="wte-dbg-perf-section" style="margin-bottom:16px;">
+	<section class="wte-dbg-perf-section wte-dbg-wp-section" aria-labelledby="wte-dbg-wp-constants-title">
 		<div class="wte-dbg-perf-section-header">
-			<span class="wte-dbg-perf-section-title"><?php esc_html_e( 'Debug Constants', 'wptravelengine-devzone' ); ?></span>
-			<span class="wte-dbg-perf-section-note"><?php esc_html_e( 'only works while DevZone plugin is active', 'wptravelengine-devzone' ); ?></span>
+			<h2 class="wte-dbg-perf-section-title" id="wte-dbg-wp-constants-title"><?php esc_html_e( 'Debug Constants', 'wptravelengine-devzone' ); ?></h2>
+			<span class="wte-dbg-perf-section-note"><?php esc_html_e( 'Applied by DevZone while it is active — the page reloads after a change', 'wptravelengine-devzone' ); ?></span>
 		</div>
-		<?php foreach ( $defines as $constant => $info ) : ?>
-		<div class="wte-dbg-wp-debug-row" data-constant="<?php echo esc_attr( $constant ); ?>">
-			<div>
-				<code class="wte-dbg-wp-code"><?php echo esc_html( $info['label'] ); ?></code>
-				<span class="wte-dbg-wp-desc"><?php echo esc_html( $info['desc'] ); ?></span>
+		<div class="wte-dbg-wp-debug-grid">
+			<?php foreach ( $defines as $constant => $info ) : ?>
+			<div class="wte-dbg-wp-debug-row" data-constant="<?php echo esc_attr( $constant ); ?>">
+				<div class="wte-dbg-wp-debug-text">
+					<code class="wte-dbg-wp-code" id="wte-dbg-wp-c-<?php echo esc_attr( $constant ); ?>"><?php echo esc_html( $info['label'] ); ?></code>
+					<span class="wte-dbg-wp-desc"><?php echo esc_html( $info['desc'] ); ?></span>
+				</div>
+				<label class="wte-dbg-wp-debug-toggle">
+					<input type="checkbox" role="switch"
+					       data-constant="<?php echo esc_attr( $constant ); ?>"
+					       aria-labelledby="wte-dbg-wp-c-<?php echo esc_attr( $constant ); ?>"
+					       <?php checked( $info['value'] ); ?>>
+					<span class="wte-dbg-wp-debug-slider" aria-hidden="true"></span>
+				</label>
 			</div>
-			<label class="wte-dbg-wp-debug-toggle">
-				<input type="checkbox"
-				       data-constant="<?php echo esc_attr( $constant ); ?>"
-				       <?php checked( $info['value'] ); ?>>
-				<span class="wte-dbg-wp-debug-slider"></span>
-			</label>
+			<?php endforeach; ?>
 		</div>
-		<?php endforeach; ?>
-	</div>
+	</section>
 
-	<div class="wte-dbg-perf-section">
-		<div class="wte-dbg-perf-section-header">
-			<span class="wte-dbg-perf-section-title"><?php esc_html_e( 'Debug Log', 'wptravelengine-devzone' ); ?></span>
+	<section class="wte-dbg-perf-section wte-dbg-wp-section" aria-labelledby="wte-dbg-wp-log-title">
+		<div class="wte-dbg-perf-section-header wte-dbg-wp-log-header">
+			<h2 class="wte-dbg-perf-section-title" id="wte-dbg-wp-log-title"><?php esc_html_e( 'Debug Log', 'wptravelengine-devzone' ); ?></h2>
+			<?php if ( $log_entries ) : ?>
+			<span class="wte-dbg-wp-log-total">
+				<?php
+				/* translators: %s: number of log entries */
+				echo esc_html( sprintf( _n( '%s entry', '%s entries', count( $log_entries ), 'wptravelengine-devzone' ), number_format_i18n( count( $log_entries ) ) ) );
+				?>
+			</span>
+			<?php endif; ?>
+			<?php if ( $log_truncated ) : ?>
+			<span class="wte-dbg-wp-log-truncated">
+				<?php
+				/* translators: 1: size shown, e.g. 512 KB, 2: full log size, e.g. 58 MB */
+				echo esc_html( sprintf( __( 'Newest %1$s of %2$s', 'wptravelengine-devzone' ), size_format( $log_tail_bytes ), size_format( $log_size, 1 ) ) );
+				?>
+			</span>
+			<?php endif; ?>
 			<span class="wte-dbg-wp-log-path" title="<?php echo esc_attr( $log_path ); ?>"><?php echo esc_html( $log_path ); ?></span>
 			<?php if ( file_exists( $log_path ) && $log_contents ) : ?>
-			<button type="button" id="wte-dbg-clear-log" class="button button-small" style="margin-left:auto;">
+			<button type="button" id="wte-dbg-clear-log" class="button button-small wte-dbg-wp-clear">
 				<?php esc_html_e( 'Clear Log', 'wptravelengine-devzone' ); ?>
 			</button>
 			<?php endif; ?>
 		</div>
 		<div id="wte-dbg-log-body">
 			<?php if ( ! file_exists( $log_path ) ) : ?>
-				<p class="wte-dbg-wp-empty"><?php esc_html_e( 'No debug.log found. Enable WP_DEBUG_LOG to start capturing errors.', 'wptravelengine-devzone' ); ?></p>
+				<div class="wte-dbg-wp-empty">
+					<strong><?php esc_html_e( 'No debug.log yet', 'wptravelengine-devzone' ); ?></strong>
+					<span><?php esc_html_e( 'Turn on WP_DEBUG and WP_DEBUG_LOG above to start capturing errors.', 'wptravelengine-devzone' ); ?></span>
+				</div>
 			<?php elseif ( empty( $log_entries ) ) : ?>
-				<p class="wte-dbg-wp-empty"><?php esc_html_e( 'Debug log is empty.', 'wptravelengine-devzone' ); ?></p>
+				<div class="wte-dbg-wp-empty">
+					<strong><?php esc_html_e( 'The debug log is empty', 'wptravelengine-devzone' ); ?></strong>
+					<span><?php esc_html_e( 'New PHP errors, warnings and notices will appear here.', 'wptravelengine-devzone' ); ?></span>
+				</div>
 			<?php else : ?>
-				<div class="wte-dbg-wp-log-legend">
-					<span class="wte-dbg-wp-log-badge is-fatal"><?php esc_html_e( 'Fatal', 'wptravelengine-devzone' ); ?></span>
-					<span class="wte-dbg-wp-log-badge is-warning"><?php esc_html_e( 'Warning', 'wptravelengine-devzone' ); ?></span>
-					<span class="wte-dbg-wp-log-badge is-deprecated"><?php esc_html_e( 'Deprecated', 'wptravelengine-devzone' ); ?></span>
-					<span class="wte-dbg-wp-log-badge is-notice"><?php esc_html_e( 'Notice', 'wptravelengine-devzone' ); ?></span>
+				<div class="wte-dbg-wp-log-toolbar">
+					<div class="wte-dbg-wp-log-filters" role="group" aria-label="<?php esc_attr_e( 'Filter by severity', 'wptravelengine-devzone' ); ?>">
+						<button type="button" class="wte-dbg-wp-filter is-all" data-type="" aria-pressed="true">
+							<?php esc_html_e( 'All', 'wptravelengine-devzone' ); ?>
+							<span class="wte-dbg-wp-filter-count"><?php echo esc_html( number_format_i18n( count( $log_entries ) ) ); ?></span>
+						</button>
+						<?php foreach ( $log_types as $type_key => $type_label ) : ?>
+							<?php if ( empty( $log_counts[ $type_key ] ) ) { continue; } ?>
+						<button type="button" class="wte-dbg-wp-filter is-<?php echo esc_attr( $type_key ); ?>" data-type="<?php echo esc_attr( $type_key ); ?>" aria-pressed="false">
+							<span class="wte-dbg-wp-dot" aria-hidden="true"></span>
+							<?php echo esc_html( $type_label ); ?>
+							<span class="wte-dbg-wp-filter-count"><?php echo esc_html( number_format_i18n( $log_counts[ $type_key ] ) ); ?></span>
+						</button>
+						<?php endforeach; ?>
+					</div>
+					<input type="search" class="wte-dbg-wp-log-search" placeholder="<?php esc_attr_e( 'Filter messages, files…', 'wptravelengine-devzone' ); ?>" aria-label="<?php esc_attr_e( 'Filter log entries', 'wptravelengine-devzone' ); ?>">
 				</div>
 				<div class="wte-dbg-wp-log-list"><?php
 					foreach ( $log_entries as $entry ) {
-						$type = $entry['type'];
+						$type = isset( $log_types[ $entry['type'] ] ) ? $entry['type'] : 'default';
 						?>
-						<div class="wte-dbg-wp-log-entry is-<?php echo esc_attr( $type ); ?>">
+						<article class="wte-dbg-wp-log-entry is-<?php echo esc_attr( $type ); ?>" data-type="<?php echo esc_attr( $type ); ?>">
 							<div class="wte-dbg-wp-log-entry-header">
-								<span class="wte-dbg-wp-log-badge is-<?php echo esc_attr( $type ); ?>"><?php echo esc_html( ucfirst( $type ) ); ?></span>
+								<span class="wte-dbg-wp-log-badge is-<?php echo esc_attr( $type ); ?>"><?php echo esc_html( $log_types[ $type ] ); ?></span>
 								<?php if ( $entry['timestamp'] ) : ?>
-								<span class="wte-dbg-wp-log-ts"><?php echo esc_html( $entry['timestamp'] ); ?></span>
+								<time class="wte-dbg-wp-log-ts"><?php echo esc_html( $entry['timestamp'] ); ?></time>
 								<?php endif; ?>
 								<?php if ( $entry['file'] ) : ?>
-								<span class="wte-dbg-wp-log-loc" title="<?php echo esc_attr( $entry['file'] ); ?>">
+								<span class="wte-dbg-wp-log-loc" title="<?php echo esc_attr( $entry['file'] . ( $entry['line'] ? ':' . $entry['line'] : '' ) ); ?>">
 									<?php echo esc_html( basename( $entry['file'] ) . ( $entry['line'] ? ':' . $entry['line'] : '' ) ); ?>
 								</span>
 								<?php endif; ?>
 							</div>
-							<div class="wte-dbg-wp-log-message"><?php echo esc_html( $entry['message'] ); ?></div>
+							<?php // The badge already names the level, so drop PHP's own "PHP Deprecated:" prefix. ?>
+							<div class="wte-dbg-wp-log-message"><?php echo esc_html( preg_replace( '/^PHP (?:Fatal error|Parse error|Warning|Deprecated|Notice):\s*/', '', $entry['message'] ) ); ?></div>
 							<?php if ( ! empty( $entry['extra'] ) ) : ?>
 							<details class="wte-dbg-wp-log-trace">
 								<summary>
 									<?php
 									echo esc_html( sprintf(
 										/* translators: %d: number of stack trace lines */
-										__( 'Stack trace (%d)', 'wptravelengine-devzone' ),
+										_n( 'Stack trace · %d line', 'Stack trace · %d lines', count( $entry['extra'] ), 'wptravelengine-devzone' ),
 										count( $entry['extra'] )
 									) );
 									?>
@@ -208,12 +255,13 @@ $log_entries = $log_contents ? wpte_devzone_parse_log_entries( array_filter( exp
 								<pre><?php echo esc_html( implode( "\n", $entry['extra'] ) ); ?></pre>
 							</details>
 							<?php endif; ?>
-						</div>
+						</article>
 						<?php
 					}
 				?></div>
+				<p class="wte-dbg-wp-log-nomatch" hidden><?php esc_html_e( 'No entries match this filter.', 'wptravelengine-devzone' ); ?></p>
 			<?php endif; ?>
 		</div>
-	</div>
+	</section>
 
 </div>
